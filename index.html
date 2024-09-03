@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Snake</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Honk&display=swap');
+        body {
+            background-color: #282c34;
+            color: #ffffff;
+            font-family: 'Honk', system-ui, sans-serif;
+            background-image: url('fundo.jpg');
+            background-size: cover;
+            background-position: center;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .text {
+            margin-right: 20px;
+            text-align: center;
+        }
+
+        .title {
+            font-size: 45px;
+            font-weight: bolder;
+            margin: 20px 0;
+        }
+
+        .instructions {
+            font-size: 20px;
+            font-weight: bolder;
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            background-color: #2d2d2d;
+            border: 5px solid #e1e1e1;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        #startButton {
+            padding: 10px 20px;
+            font-size: 20px;
+            background-color: #d43d17;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin: 10px 0;
+        }
+
+        #startButton:hover {
+            background-color: #45a049;
+        }
+
+        @media (max-width: 600px) {
+            .title {
+                font-size: 36px;
+            }
+
+            .instructions {
+                font-size: 16px;
+            }
+
+            canvas {
+                width: 100%;
+                height: auto;
+                max-width: 400px;
+            }
+
+            #startButton {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="text">
+            <div class="title">|| Snake ||</div>
+            <div class="instructions">
+                *Não bata nas paredes<br>
+                *Aperte F5 para jogar novamente<br>
+                *Use as setas do teclado para jogar
+            </div>
+            <button id="startButton">Iniciar Música e Jogo</button>
+        </div>
+        <canvas id="snakeCanvas" width="400" height="400"></canvas>
+    </div>
+
+    <audio id="backgroundMusic" src="som.mp3" loop></audio>
+    <audio id="eatSound" src="comer.mp3"></audio>
+    <audio id="gameOverSound" src="gameover.mp3"></audio>
+
+    <script type="text/javascript">
+        const canvas = document.getElementById('snakeCanvas');
+        const ctx = canvas.getContext('2d');
+        const tamanhoCelula = 20;
+        const numCelulas = canvas.width / tamanhoCelula;
+        let cobra, direcao, maca, velocidade, incrementoVelocidade, aumentoDificuldade, tempoDesdeUltimaMaca, vivo, corCobra, corMaca, pontuacao;
+        const audio = document.getElementById('backgroundMusic');
+        const eatSound = document.getElementById('eatSound');
+        const gameOverSound = document.getElementById('gameOverSound');
+
+        function inicializarJogo() {
+            cobra = [{ x: 5, y: 5 }];
+            direcao = { x: 1, y: 0 };
+            maca = gerarMaca();
+            velocidade = 200; // Velocidade inicial ajustada
+            incrementoVelocidade = 0.995; // Reduz a velocidade mais lentamente
+            aumentoDificuldade = 0.001; // Aumenta a dificuldade mais lentamente
+            tempoDesdeUltimaMaca = 0;
+            vivo = true;
+            corCobra = "#3CB371";
+            corMaca = "#ff3333";
+            pontuacao = 0;
+            document.getElementById('startButton').style.display = 'none';
+            gameLoop();
+        }
+
+        document.getElementById('startButton').addEventListener('click', () => {
+            audio.play();
+            inicializarJogo();
+        });
+
+        function desenhaCobra() {
+            ctx.fillStyle = corCobra;
+            cobra.forEach(segmento => {
+                ctx.fillRect(segmento.x * tamanhoCelula, segmento.y * tamanhoCelula, tamanhoCelula, tamanhoCelula);
+            });
+        }
+
+        function desenhaMaca() {
+            ctx.fillStyle = corMaca;
+            ctx.fillRect(maca.x * tamanhoCelula, maca.y * tamanhoCelula, tamanhoCelula, tamanhoCelula);
+        }
+
+        function gerarMaca() {
+            let novaMaca;
+            do {
+                novaMaca = {
+                    x: Math.floor(Math.random() * numCelulas),
+                    y: Math.floor(Math.random() * numCelulas)
+                };
+            } while (cobra.some(segmento => segmento.x === novaMaca.x && segmento.y === novaMaca.y));
+            return novaMaca;
+        }
+
+        function animacaoMaca() {
+            setInterval(() => {
+                corMaca = corMaca === "#ff3333" ? "#ff6666" : "#ff3333";
+            }, 200);
+        }
+
+        function atualizaCobra() {
+            const cabeca = { x: cobra[0].x + direcao.x, y: cobra[0].y + direcao.y };
+
+            if (cabeca.x === maca.x && cabeca.y === maca.y) {
+                cobra.push({});
+                maca = gerarMaca();
+                pontuacao++;
+                eatSound.play();
+                corCobra = getCorAleatoria();
+                ajustaCorFundo(corCobra);
+                tempoDesdeUltimaMaca = 0;
+            } else {
+                cobra.pop();
+            }
+
+            cobra.unshift(cabeca);
+
+            if (cobra[0].x < 0 || cobra[0].y < 0 || cobra[0].x >= numCelulas || cobra[0].y >= numCelulas ||
+                cobra.slice(1).some(segmento => segmento.x === cobra[0].x && segmento.y === cobra[0].y)) {
+                vivo = false;
+            }
+
+            tempoDesdeUltimaMaca++;
+            velocidade = Math.max(50, velocidade * incrementoVelocidade); // Limita a velocidade mínima
+        }
+
+        function getCorAleatoria() {
+            const letras = '0123456789ABCDEF';
+            let cor = '#';
+            for (let i = 0; i < 6; i++) {
+                cor += letras[Math.floor(Math.random() * 16)];
+            }
+            return cor;
+        }
+
+        function ajustaCorFundo(cor) {
+            const luminancia = (parseInt(cor.substr(1, 2), 16) * 0.299 +
+                                parseInt(cor.substr(3, 2), 16) * 0.587 +
+                                parseInt(cor.substr(5, 2), 16) * 0.114) / 255;
+            canvas.style.backgroundColor = luminancia < 0.5 ? '#ffffff' : '#2d2d2d';
+        }
+
+        function gameLoop() {
+            if (vivo) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                atualizaCobra();
+                desenhaCobra();
+                desenhaMaca();
+                setTimeout(gameLoop, velocidade);
+            } else {
+                audio.pause();
+                gameOverSound.play();
+                alert('Fim de jogo.\nVocê pegou ' + pontuacao + ' maçãs.');
+                document.getElementById('startButton').style.display = 'block';
+            }
+        }
+
+        function pegaDirecao(tecla) {
+            if (tecla === 37 && direcao.x === 0) direcao = { x: -1, y: 0 };
+            if (tecla === 38 && direcao.y === 0) direcao = { x: 0, y: -1 };
+            if (tecla === 39 && direcao.x === 0) direcao = { x: 1, y: 0 };
+            if (tecla === 40 && direcao.y === 0) direcao = { x: 0, y: 1 };
+        }
+
+        window.addEventListener('keydown', (event) => {
+            pegaDirecao(event.keyCode);
+        });
+
+        animacaoMaca();
+    </script>
+</body>
+</html>
